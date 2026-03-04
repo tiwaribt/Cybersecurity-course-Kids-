@@ -14,7 +14,10 @@ import {
   School,
   HelpCircle,
   Trophy,
-  RefreshCw
+  RefreshCw,
+  Users,
+  Search,
+  Eye
 } from 'lucide-react';
 import { User, Course, Lesson, CertificateSettings, Quiz, QuizQuestion, QuizScore } from './types';
 
@@ -31,6 +34,9 @@ const App: React.FC = () => {
   const [activeQuiz, setActiveQuiz] = useState<{ quiz: Quiz; questions: QuizQuestion[] } | null>(null);
   const [showQuiz, setShowQuiz] = useState(false);
   const [certSettings, setCertSettings] = useState<CertificateSettings | null>(null);
+  const [adminUsers, setAdminUsers] = useState<any[]>([]);
+  const [selectedAdminUser, setSelectedAdminUser] = useState<any | null>(null);
+  const [adminUserProgress, setAdminUserProgress] = useState<any | null>(null);
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
 
   useEffect(() => {
@@ -48,6 +54,18 @@ const App: React.FC = () => {
     const res = await fetch('/api/certificate-settings');
     const data = await res.json();
     setCertSettings(data);
+  };
+
+  const fetchAdminUsers = async () => {
+    const res = await fetch('/api/admin/users');
+    const data = await res.json();
+    setAdminUsers(data);
+  };
+
+  const fetchAdminUserProgress = async (userId: number) => {
+    const res = await fetch(`/api/admin/users/${userId}/progress`);
+    const data = await res.json();
+    setAdminUserProgress(data);
   };
 
   const fetchProgress = async (userId: number) => {
@@ -615,6 +633,7 @@ const App: React.FC = () => {
   };
 
   const AdminPanel = () => {
+    const [activeTab, setActiveTab] = useState<'certificate' | 'students'>('certificate');
     const [settings, setSettings] = useState<CertificateSettings>({
       school_name: '',
       signatory_name: '',
@@ -624,6 +643,7 @@ const App: React.FC = () => {
 
     useEffect(() => {
       if (certSettings) setSettings(certSettings);
+      fetchAdminUsers();
     }, [certSettings]);
 
     const handleSave = async () => {
@@ -649,67 +669,218 @@ const App: React.FC = () => {
       }
     };
 
+    const viewUserDetail = (user: any) => {
+      setSelectedAdminUser(user);
+      fetchAdminUserProgress(user.id);
+    };
+
     return (
       <div className="min-h-screen bg-stone-50 flex">
-        <aside className="w-72 bg-white border-r border-stone-200 p-8">
+        <aside className="w-72 bg-white border-r border-stone-200 p-8 flex flex-col">
           <button onClick={() => setView('dashboard')} className="flex items-center gap-2 text-stone-400 hover:text-stone-900 mb-12">
             <LogOut className="w-5 h-5 rotate-180" />
             {t('Back to Dashboard', 'ड्यासबोर्डमा फर्कनुहोस्')}
           </button>
-          <h2 className="text-2xl font-bold text-stone-900 mb-8">{t('Admin Settings', 'प्रशासक सेटिङहरू')}</h2>
-          <nav className="space-y-2">
-            <button className="w-full text-left px-4 py-3 bg-emerald-50 text-emerald-700 rounded-xl font-medium">
-              Certificate Settings
+          <h2 className="text-2xl font-bold text-stone-900 mb-8">{t('Admin Panel', 'प्रशासक प्यानल')}</h2>
+          <nav className="space-y-2 flex-1">
+            <button 
+              onClick={() => setActiveTab('certificate')}
+              className={`w-full text-left px-4 py-3 rounded-xl font-medium transition-all ${activeTab === 'certificate' ? 'bg-emerald-50 text-emerald-700' : 'text-stone-500 hover:bg-stone-50'}`}
+            >
+              {t('Certificate Settings', 'प्रमाणपत्र सेटिङहरू')}
+            </button>
+            <button 
+              onClick={() => setActiveTab('students')}
+              className={`w-full text-left px-4 py-3 rounded-xl font-medium transition-all ${activeTab === 'students' ? 'bg-emerald-50 text-emerald-700' : 'text-stone-500 hover:bg-stone-50'}`}
+            >
+              {t('Student Management', 'विद्यार्थी व्यवस्थापन')}
             </button>
           </nav>
         </aside>
 
-        <main className="flex-1 p-12 max-w-3xl">
-          <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-stone-100 space-y-8">
-            <h3 className="text-2xl font-bold text-stone-900">Certificate Customization</h3>
-            
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-stone-700">Signatory Name</label>
-                <input 
-                  type="text"
-                  className="w-full px-5 py-3 bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  value={settings.signatory_name}
-                  onChange={e => setSettings({...settings, signatory_name: e.target.value})}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-stone-700">Signatory Title</label>
-                <input 
-                  type="text"
-                  className="w-full px-5 py-3 bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  value={settings.signatory_title}
-                  onChange={e => setSettings({...settings, signatory_title: e.target.value})}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-stone-700">Signature Image</label>
-                <div className="flex items-center gap-4">
-                  {settings.signature_base64 && (
-                    <img src={settings.signature_base64} alt="Signature" className="h-12 border border-stone-200 rounded p-1" />
-                  )}
+        <main className="flex-1 p-12 overflow-y-auto">
+          {activeTab === 'certificate' ? (
+            <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-stone-100 space-y-8 max-w-3xl">
+              <h3 className="text-2xl font-bold text-stone-900">Certificate Customization</h3>
+              
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-stone-700">Signatory Name</label>
                   <input 
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFile}
-                    className="text-sm text-stone-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
+                    type="text"
+                    className="w-full px-5 py-3 bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    value={settings.signatory_name}
+                    onChange={e => setSettings({...settings, signatory_name: e.target.value})}
                   />
                 </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-stone-700">Signatory Title</label>
+                  <input 
+                    type="text"
+                    className="w-full px-5 py-3 bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    value={settings.signatory_title}
+                    onChange={e => setSettings({...settings, signatory_title: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-stone-700">Signature Image</label>
+                  <div className="flex items-center gap-4">
+                    {settings.signature_base64 && (
+                      <img src={settings.signature_base64} alt="Signature" className="h-12 border border-stone-200 rounded p-1" />
+                    )}
+                    <input 
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFile}
+                      className="text-sm text-stone-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
 
-            <button 
-              onClick={handleSave}
-              className="w-full bg-stone-900 text-white py-4 rounded-2xl font-bold hover:bg-stone-800 transition-all"
-            >
-              Save Changes
-            </button>
-          </div>
+              <button 
+                onClick={handleSave}
+                className="w-full bg-stone-900 text-white py-4 rounded-2xl font-bold hover:bg-stone-800 transition-all"
+              >
+                Save Changes
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-8">
+              {!selectedAdminUser ? (
+                <div className="bg-white rounded-[2.5rem] shadow-sm border border-stone-100 overflow-hidden">
+                  <div className="p-8 border-b border-stone-100 flex justify-between items-center bg-stone-50/50">
+                    <h3 className="text-2xl font-bold text-stone-900">{t('Student List', 'विद्यार्थी सूची')}</h3>
+                    <div className="relative">
+                      <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" />
+                      <input 
+                        type="text" 
+                        placeholder={t('Search students...', 'विद्यार्थीहरू खोज्नुहोस्...')}
+                        className="pl-12 pr-6 py-3 bg-white border border-stone-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 w-64"
+                      />
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="bg-stone-50/50 text-stone-400 text-xs font-bold uppercase tracking-widest">
+                          <th className="px-8 py-4">{t('Student Name', 'विद्यार्थीको नाम')}</th>
+                          <th className="px-8 py-4">{t('Username', 'प्रयोगकर्ता नाम')}</th>
+                          <th className="px-8 py-4">{t('Lessons Done', 'सकिएका पाठहरू')}</th>
+                          <th className="px-8 py-4">{t('Avg. Quiz Score', 'औसत प्रश्नोत्तरी अंक')}</th>
+                          <th className="px-8 py-4 text-right">{t('Action', 'कार्य')}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-stone-100">
+                        {adminUsers.map(u => (
+                          <tr key={u.id} className="hover:bg-stone-50 transition-colors">
+                            <td className="px-8 py-6 font-bold text-stone-900">{u.full_name}</td>
+                            <td className="px-8 py-6 text-stone-500">{u.username}</td>
+                            <td className="px-8 py-6">
+                              <span className="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold">
+                                {u.completed_lessons}
+                              </span>
+                            </td>
+                            <td className="px-8 py-6">
+                              <span className="font-bold text-stone-900">
+                                {u.avg_quiz_score ? `${Math.round(u.avg_quiz_score)}%` : 'N/A'}
+                              </span>
+                            </td>
+                            <td className="px-8 py-6 text-right">
+                              <button 
+                                onClick={() => viewUserDetail(u)}
+                                className="p-2 hover:bg-stone-200 rounded-lg transition-colors text-stone-400 hover:text-stone-900"
+                              >
+                                <Eye className="w-5 h-5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-8">
+                  <button 
+                    onClick={() => setSelectedAdminUser(null)}
+                    className="flex items-center gap-2 text-stone-400 hover:text-stone-900 font-bold"
+                  >
+                    <ChevronRight className="w-5 h-5 rotate-180" />
+                    {t('Back to Student List', 'विद्यार्थी सूचीमा फर्कनुहोस्')}
+                  </button>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div className="md:col-span-1 space-y-8">
+                      <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-stone-100 text-center">
+                        <div className="w-24 h-24 bg-stone-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                          <UserIcon className="w-12 h-12 text-stone-400" />
+                        </div>
+                        <h3 className="text-2xl font-bold text-stone-900 mb-1">{selectedAdminUser.full_name}</h3>
+                        <p className="text-stone-500 mb-6">@{selectedAdminUser.username}</p>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="bg-stone-50 p-4 rounded-2xl">
+                            <p className="text-xs text-stone-400 font-bold uppercase tracking-widest mb-1">{t('Lessons', 'पाठहरू')}</p>
+                            <p className="text-2xl font-bold text-stone-900">{selectedAdminUser.completed_lessons}</p>
+                          </div>
+                          <div className="bg-stone-50 p-4 rounded-2xl">
+                            <p className="text-xs text-stone-400 font-bold uppercase tracking-widest mb-1">{t('Score', 'अंक')}</p>
+                            <p className="text-2xl font-bold text-stone-900">{selectedAdminUser.avg_quiz_score ? `${Math.round(selectedAdminUser.avg_quiz_score)}%` : 'N/A'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="md:col-span-2 space-y-8">
+                      <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-stone-100">
+                        <h4 className="text-xl font-bold text-stone-900 mb-6">{t('Recent Activity', 'हालैको गतिविधि')}</h4>
+                        <div className="space-y-4">
+                          {adminUserProgress?.progress.map((p: any, idx: number) => (
+                            <div key={idx} className="flex items-center justify-between p-4 bg-stone-50 rounded-2xl">
+                              <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
+                                  <CheckCircle className="w-5 h-5 text-emerald-600" />
+                                </div>
+                                <div>
+                                  <p className="font-bold text-stone-900">{t(p.title_en, p.title_ne)}</p>
+                                  <p className="text-xs text-stone-400">{new Date(p.completed_at).toLocaleDateString()}</p>
+                                </div>
+                              </div>
+                              <span className="text-xs font-bold text-emerald-600 uppercase tracking-widest">Completed</span>
+                            </div>
+                          ))}
+                          {(!adminUserProgress || adminUserProgress.progress.length === 0) && (
+                            <p className="text-stone-400 text-center py-8 italic">No activity yet.</p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-stone-100">
+                        <h4 className="text-xl font-bold text-stone-900 mb-6">{t('Quiz Scores', 'प्रश्नोत्तरी अंकहरू')}</h4>
+                        <div className="space-y-4">
+                          {adminUserProgress?.scores.map((s: any, idx: number) => (
+                            <div key={idx} className="flex items-center justify-between p-4 bg-stone-50 rounded-2xl">
+                              <div>
+                                <p className="font-bold text-stone-900">{t(s.title_en, s.title_ne)}</p>
+                                <p className="text-xs text-stone-400">{new Date(s.completed_at).toLocaleDateString()}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-bold text-stone-900">{s.score} / {s.total}</p>
+                                <p className="text-xs font-bold text-emerald-600">{Math.round((s.score / s.total) * 100)}%</p>
+                              </div>
+                            </div>
+                          ))}
+                          {(!adminUserProgress || adminUserProgress.scores.length === 0) && (
+                            <p className="text-stone-400 text-center py-8 italic">No quizzes taken yet.</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </main>
       </div>
     );
